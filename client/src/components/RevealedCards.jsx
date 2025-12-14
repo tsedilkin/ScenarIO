@@ -49,6 +49,20 @@ function RevealedCards({ gameState, playerId, isMobile }) {
   return (
     <div className="min-h-screen p-4">
       <QRCodeDisplay sessionId={gameState.id} />
+      
+      {/* ID сессии в правом верхнем углу */}
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="fixed top-4 right-4 z-50"
+      >
+        <div className="bg-white/10 backdrop-blur-lg rounded-lg px-4 py-2 border border-white/20 shadow-lg">
+          <p className="text-white/70 text-sm">
+            Сессия: <span className="font-mono text-primary-400 font-semibold">{gameState.id}</span>
+          </p>
+        </div>
+      </motion.div>
+      
       <div className="max-w-7xl 2xl:max-w-[90rem] 4xl:max-w-[120rem] mx-auto">
         {/* Заголовок */}
         <motion.div
@@ -59,9 +73,6 @@ function RevealedCards({ gameState, playerId, isMobile }) {
           <h1 className="text-3xl md:text-5xl 4xl:text-6xl font-bold text-white mb-2">
             Результаты
           </h1>
-          <p className="text-white/70 text-sm md:text-base 4xl:text-lg">
-            Сессия: <span className="font-mono text-primary-400">{gameState.id}</span>
-          </p>
         </motion.div>
 
         {/* Таблица карточек - строго вертикальный список */}
@@ -77,7 +88,7 @@ function RevealedCards({ gameState, playerId, isMobile }) {
               >
                 <div className="text-center mb-3 4xl:mb-4">
                   <span className="text-white/70 text-sm md:text-base 4xl:text-lg font-semibold">
-                    Пара #{index + 1}
+                    Действие #{index + 1}
                   </span>
                 </div>
 
