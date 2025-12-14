@@ -6,4 +6,5 @@ build/
 .env
 .env.local
 .vite/
+public/gifs/
 

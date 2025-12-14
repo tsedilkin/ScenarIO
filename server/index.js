@@ -5,6 +5,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { networkInterfaces } from 'os';
+import { existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,21 +22,38 @@ const io = new Server(httpServer, {
 app.use(cors());
 app.use(express.json());
 
+// Статическая раздача GIF файлов
+const publicDir = join(__dirname, '..', 'public');
+app.use('/gifs', express.static(join(publicDir, 'gifs')));
+
 // Endpoint для получения GIF позы
 app.post('/api/get-pose-gif', async (req, res) => {
   try {
     // Генерируем случайный номер позы от 1 до 65 (как в базе камасутры)
     const randomPose = Math.floor(Math.random() * 65) + 1;
-    // Правильный путь: https://fanty-online.com/data/uploads/poza-{номер}.gif
-    const gifUrl = `https://fanty-online.com/data/uploads/poza-${randomPose}.gif`;
     
-    console.log('Returning GIF URL:', gifUrl);
+    // Проверяем, есть ли локальный файл
+    const localGifPath = join(publicDir, 'gifs', `poza-${randomPose}.gif`);
+    const hasLocalFile = existsSync(localGifPath);
     
-    // Просто возвращаем URL - браузер сам загрузит GIF
+    let gifUrl;
+    if (hasLocalFile) {
+      // Используем локальный файл
+      // req.headers.host уже содержит host:port
+      const host = req.headers.host || `localhost:${process.env.PORT || 3000}`;
+      const protocol = req.protocol || (req.secure ? 'https' : 'http');
+      gifUrl = `${protocol}://${host}/gifs/poza-${randomPose}.gif`;
+      console.log('Using local GIF:', gifUrl);
+    } else {
+      // Fallback на внешний URL
+      gifUrl = `https://fanty-online.com/data/uploads/poza-${randomPose}.gif`;
+      console.log('Using external GIF (local not found):', gifUrl);
+    }
+    
     res.json({ gifUrl });
   } catch (error) {
     console.error('Error generating GIF URL:', error);
-    // Fallback - случайная поза
+    // Fallback - случайная поза с внешнего URL
     const randomPose = Math.floor(Math.random() * 65) + 1;
     res.json({ 
       gifUrl: `https://fanty-online.com/data/uploads/poza-${randomPose}.gif`,
