@@ -9,7 +9,7 @@
     "client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "start": "node server/index.js",
-    "download-gifs": "node scripts/download-gifs.js"
+    "rename-gifs": "node scripts/rename-gifs.js"
   },
   "keywords": [],
   "author": "",

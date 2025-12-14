@@ -24,7 +24,7 @@ app.use(express.json());
 
 // Статическая раздача GIF файлов
 const publicDir = join(__dirname, '..', 'public');
-const gifsDir = join(publicDir, 'gifs');
+const gifsDir = join(publicDir, 'gifs-sexolog');
 app.use('/gifs', express.static(gifsDir));
 
 // Кэш списка доступных локальных GIF файлов
@@ -36,29 +36,31 @@ function getLocalGifs() {
     return localGifsCache;
   }
   
+  const allGifs = [];
+  
   try {
     if (!existsSync(gifsDir)) {
+      console.warn(`⚠️  Папка ${gifsDir} не найдена. Создайте папку и добавьте GIF файлы.`);
       localGifsCache = [];
       return [];
     }
     
     const files = readdirSync(gifsDir);
-    // Фильтруем только .gif файлы и извлекаем номера
-    const gifNumbers = files
-      .filter(file => file.startsWith('poza-') && file.endsWith('.gif'))
-      .map(file => {
-        const match = file.match(/poza-(\d+)\.gif/);
-        return match ? parseInt(match[1]) : null;
-      })
-      .filter(num => num !== null && num >= 1 && num <= 65);
+    const gifFiles = files.filter(file => file.endsWith('.gif'));
     
-    localGifsCache = gifNumbers;
+    gifFiles.forEach(file => {
+      allGifs.push({ file, path: 'gifs' });
+    });
     
-    if (gifNumbers.length > 0) {
-      console.log(`✓ Найдено ${gifNumbers.length} локальных GIF файлов`);
+    localGifsCache = allGifs;
+    
+    if (allGifs.length > 0) {
+      console.log(`✓ Найдено ${allGifs.length} локальных GIF файлов`);
+    } else {
+      console.warn(`⚠️  В папке ${gifsDir} нет GIF файлов`);
     }
     
-    return gifNumbers;
+    return allGifs;
   } catch (error) {
     console.error('Error reading local GIFs:', error);
     localGifsCache = [];
@@ -74,33 +76,28 @@ app.post('/api/get-pose-gif', async (req, res) => {
   try {
     const localGifs = getLocalGifs();
     
-    let gifUrl;
-    
-    // Если есть локальные GIF файлы, используем их
-    if (localGifs.length > 0) {
-      // Выбираем случайный номер из доступных локальных файлов
-      const randomIndex = Math.floor(Math.random() * localGifs.length);
-      const randomPose = localGifs[randomIndex];
-      
-      // Формируем URL для локального файла
-      const host = req.headers.host || `localhost:${process.env.PORT || 3000}`;
-      const protocol = req.protocol || (req.secure ? 'https' : 'http');
-      gifUrl = `${protocol}://${host}/gifs/poza-${randomPose}.gif`;
-    } else {
-      // Если локальных файлов нет, используем внешний URL (старый способ)
-      const randomPose = Math.floor(Math.random() * 65) + 1;
-      gifUrl = `https://fanty-online.com/data/uploads/poza-${randomPose}.gif`;
+    if (localGifs.length === 0) {
+      return res.status(404).json({ 
+        error: 'No GIF files found in local directory',
+        message: 'Добавьте GIF файлы в папку public/gifs-sexolog/'
+      });
     }
+    
+    // Выбираем случайный файл из доступных локальных файлов
+    const randomIndex = Math.floor(Math.random() * localGifs.length);
+    const randomGif = localGifs[randomIndex];
+    
+    // Формируем URL для локального файла
+    const host = req.headers.host || `localhost:${process.env.PORT || 3000}`;
+    const protocol = req.protocol || (req.secure ? 'https' : 'http');
+    const gifUrl = `${protocol}://${host}/${randomGif.path}/${randomGif.file}`;
     
     res.json({ gifUrl });
   } catch (error) {
     console.error('Error generating GIF URL:', error);
-    // Fallback - случайная поза с внешнего URL
-    const randomPose = Math.floor(Math.random() * 65) + 1;
-    res.json({ 
-      gifUrl: `https://fanty-online.com/data/uploads/poza-${randomPose}.gif`,
+    res.status(500).json({ 
       error: error.message,
-      fallback: true
+      message: 'Ошибка при получении GIF'
     });
   }
 });
@@ -826,4 +823,5 @@ httpServer.listen(PORT, HOST, () => {
   }
   console.log(`\n📱 Open this URL on your devices in the same WiFi network\n`);
 });
+
 
