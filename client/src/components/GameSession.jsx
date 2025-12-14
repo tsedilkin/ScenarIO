@@ -54,14 +54,25 @@ function GameSession({ socket, sessionId, playerId, gameState, onUpdateCards, on
 
   const handleCardChange = (index, text) => {
     const newCards = [...localCards];
-    newCards[index] = { ...newCards[index], text, isEmpty: false };
+    // Нормализуем текст - убираем undefined/null, но сохраняем пустую строку как есть
+    const normalizedText = text !== undefined && text !== null ? text : '';
+    
+    // isEmpty = true только если нет текста И нет GIF
+    const currentCard = newCards[index] || {};
+    const isEmpty = !normalizedText.trim() && !currentCard.gifUrl;
+    newCards[index] = { ...currentCard, text: normalizedText, isEmpty };
     setLocalCards(newCards);
     onUpdateCards(newCards);
   };
 
   const handleGifChange = (index, gifUrl) => {
     const newCards = [...localCards];
-    newCards[index] = { ...newCards[index], gifUrl };
+    const currentCard = newCards[index] || {};
+    // Обновляем gifUrl (может быть null для очистки)
+    const updatedCard = { ...currentCard, gifUrl: gifUrl || null };
+    // Обновляем isEmpty - карточка пустая только если нет текста И нет GIF
+    updatedCard.isEmpty = !updatedCard.text?.trim() && !updatedCard.gifUrl;
+    newCards[index] = updatedCard;
     setLocalCards(newCards);
     onUpdateCards(newCards);
   };

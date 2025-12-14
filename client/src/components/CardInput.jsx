@@ -73,6 +73,20 @@ function CardInput({ index, value, onChange, onRemove, gifUrl, onGifChange }) {
     }
   };
 
+  const handleClear = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Очищаем оба значения одновременно - вызываем обе функции
+    // Важно: вызываем обе функции, даже если одна из них undefined
+    if (onChange) {
+      onChange('');
+    }
+    if (onGifChange) {
+      onGifChange(null);
+    }
+  };
+
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
@@ -84,7 +98,7 @@ function CardInput({ index, value, onChange, onRemove, gifUrl, onGifChange }) {
         </div>
         <div className="flex-1">
           <textarea
-            value={value}
+            value={value ?? ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder={`Введите действие для карточки ${index + 1}...`}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none min-h-[80px]"
@@ -143,11 +157,22 @@ function CardInput({ index, value, onChange, onRemove, gifUrl, onGifChange }) {
                 </>
               )}
             </button>
+            {(value || gifUrl) && (
+              <button
+                onClick={handleClear}
+                className="flex items-center justify-center px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white transition-all"
+                title="Очистить"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
           </div>
           {error && (
             <div className="mt-2 text-red-400 text-xs">{error}</div>
           )}
-          {gifUrl && (
+          {gifUrl && gifUrl !== null && gifUrl !== '' && (
             <div className="mt-3 rounded-lg overflow-hidden border border-white/20">
               <img 
                 src={gifUrl} 
