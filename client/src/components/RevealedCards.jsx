@@ -38,8 +38,10 @@ function RevealedCards({ gameState, playerId, isMobile }) {
     console.log(`Pair ${index}:`, {
       player1Card: pair.player1Card,
       player1Text: pair.player1Card?.text,
+      player1GifUrl: pair.player1Card?.gifUrl,
       player2Card: pair.player2Card,
       player2Text: pair.player2Card?.text,
+      player2GifUrl: pair.player2Card?.gifUrl,
       winner: pair.winner
     });
   });
@@ -106,31 +108,53 @@ function RevealedCards({ gameState, playerId, isMobile }) {
                         }}
                       >
                         <motion.div 
-                          className="text-center w-full" 
+                          className="text-center w-full h-full flex flex-col" 
                           style={{ transform: 'rotateY(180deg)' }}
                           initial={{ rotateY: 180 }}
                           animate={{ rotateY: flipped ? 1080 : 180 }}
                           transition={{ duration: 0.6, delay: index * 0.1 }}
                         >
                           <div className="text-white/70 text-xs md:text-sm 4xl:text-base mb-2">Игрок 1</div>
-                          <div className="text-white text-base md:text-lg 4xl:text-2xl font-semibold break-words px-2">
-                            {(() => {
-                              const card = pair.player1Card;
-                              let cardText = '';
-                              
-                              if (card) {
-                                if (typeof card === 'string') {
-                                  cardText = card;
-                                } else if (card.text !== undefined) {
-                                  cardText = String(card.text || '');
-                                }
+                          {(() => {
+                            const card = pair.player1Card;
+                            let cardText = '';
+                            let gifUrl = null;
+                            
+                            if (card) {
+                              if (typeof card === 'string') {
+                                cardText = card;
+                              } else if (card && typeof card === 'object') {
+                                cardText = String(card.text || '');
+                                gifUrl = card.gifUrl || null;
                               }
-                              
-                              const result = cardText.trim() || '(пусто)';
-                              console.log('Player1 card text:', result, 'from card:', card);
-                              return result;
-                            })()}
-                          </div>
+                            }
+                            
+                            // Если есть GIF, показываем его (текст опционален)
+                            if (gifUrl) {
+                              return (
+                                <div className="flex-1 flex items-center justify-center">
+                                  <img 
+                                    src={gifUrl} 
+                                    alt="Pose animation" 
+                                    className="max-w-full max-h-full object-contain rounded-lg"
+                                    onError={(e) => {
+                                      console.error('Error loading GIF:', gifUrl);
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              );
+                            }
+                            
+                            // Если нет GIF, показываем текст
+                            const result = cardText.trim() || '(пусто)';
+                            console.log('Player1 card text:', result, 'from card:', card);
+                            return (
+                              <div className="text-white text-base md:text-lg 4xl:text-2xl font-semibold break-words px-2 flex-1 flex items-center justify-center">
+                                {result}
+                              </div>
+                            );
+                          })()}
                         </motion.div>
                       </div>
                       {/* Лицевая сторона с вопросом */}
@@ -175,31 +199,53 @@ function RevealedCards({ gameState, playerId, isMobile }) {
                         }}
                       >
                         <motion.div 
-                          className="text-center w-full" 
+                          className="text-center w-full h-full flex flex-col" 
                           style={{ transform: 'rotateY(180deg)' }}
                           initial={{ rotateY: 180 }}
                           animate={{ rotateY: flipped ? 1080 : 180 }}
                           transition={{ duration: 0.6, delay: index * 0.1 + 0.1 }}
                         >
                           <div className="text-white/70 text-xs md:text-sm 4xl:text-base mb-2">Игрок 2</div>
-                          <div className="text-white text-base md:text-lg 4xl:text-2xl font-semibold break-words px-2">
-                            {(() => {
-                              const card = pair.player2Card;
-                              let cardText = '';
-                              
-                              if (card) {
-                                if (typeof card === 'string') {
-                                  cardText = card;
-                                } else if (card.text !== undefined) {
-                                  cardText = String(card.text || '');
-                                }
+                          {(() => {
+                            const card = pair.player2Card;
+                            let cardText = '';
+                            let gifUrl = null;
+                            
+                            if (card) {
+                              if (typeof card === 'string') {
+                                cardText = card;
+                              } else if (card && typeof card === 'object') {
+                                cardText = String(card.text || '');
+                                gifUrl = card.gifUrl || null;
                               }
-                              
-                              const result = cardText.trim() || '(пусто)';
-                              console.log('Player2 card text:', result, 'from card:', card);
-                              return result;
-                            })()}
-                          </div>
+                            }
+                            
+                            // Если есть GIF, показываем его (текст опционален)
+                            if (gifUrl) {
+                              return (
+                                <div className="flex-1 flex items-center justify-center">
+                                  <img 
+                                    src={gifUrl} 
+                                    alt="Pose animation" 
+                                    className="max-w-full max-h-full object-contain rounded-lg"
+                                    onError={(e) => {
+                                      console.error('Error loading GIF:', gifUrl);
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              );
+                            }
+                            
+                            // Если нет GIF, показываем текст
+                            const result = cardText.trim() || '(пусто)';
+                            console.log('Player2 card text:', result, 'from card:', card);
+                            return (
+                              <div className="text-white text-base md:text-lg 4xl:text-2xl font-semibold break-words px-2 flex-1 flex items-center justify-center">
+                                {result}
+                              </div>
+                            );
+                          })()}
                         </motion.div>
                       </div>
                       {/* Лицевая сторона с вопросом */}

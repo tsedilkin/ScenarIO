@@ -21,6 +21,173 @@ const io = new Server(httpServer, {
 app.use(cors());
 app.use(express.json());
 
+// Endpoint для получения GIF позы
+app.post('/api/get-pose-gif', async (req, res) => {
+  try {
+    // Генерируем случайный номер позы от 1 до 65 (как в базе камасутры)
+    const randomPose = Math.floor(Math.random() * 65) + 1;
+    // Правильный путь: https://fanty-online.com/data/uploads/poza-{номер}.gif
+    const gifUrl = `https://fanty-online.com/data/uploads/poza-${randomPose}.gif`;
+    
+    console.log('Returning GIF URL:', gifUrl);
+    
+    // Просто возвращаем URL - браузер сам загрузит GIF
+    res.json({ gifUrl });
+  } catch (error) {
+    console.error('Error generating GIF URL:', error);
+    // Fallback - случайная поза
+    const randomPose = Math.floor(Math.random() * 65) + 1;
+    res.json({ 
+      gifUrl: `https://fanty-online.com/data/uploads/poza-${randomPose}.gif`,
+      error: error.message,
+      fallback: true
+    });
+  }
+});
+
+// Endpoint для генерации вариантов действий через Ollama
+app.post('/api/generate-suggestions', async (req, res) => {
+  try {
+    const { context } = req.body;
+    
+    // Промпт для генерации эротических и интимных действий для пары
+    // Простой и понятный промпт - используем простые описания вместо специальных терминов
+    const prompt = `Придумай одно задание для эротической игры. Используй ТОЧНО такой же простой стиль, как в примерах ниже.
+
+ПРИМЕРЫ:
+- Партнер сверху в течение 10 минут
+- Оральный секс партнеру на коленях
+- Одновременно делать оральный секс друг другу в течение 15 минут
+- Анальный секс когда партнер на четвереньках
+- Эротический массаж с маслом всего тела
+- Секс стоя у стены с глубокими проникновениями
+- Мастурбация партнера руками в течение 5 минут
+
+Твоя задача: придумай ОДНО задание в таком же простом стиле. Используй простые слова, понятные любому человеку. Избегай специальных терминов типа "поза наездницы" или "поза 69" - вместо этого описывай простыми словами.
+
+Только задание, одна строка, без объяснений.`;
+
+    // Запрос к локальному Ollama API
+    const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434/api/generate';
+    // Mistral обычно менее строгий к эротическому контенту, чем llama3.2
+    const model = process.env.OLLAMA_MODEL || 'mistral'; // Попробуйте mistral вместо llama3.2
+    
+    const response = await fetch(ollamaUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        prompt: prompt,
+        stream: false,
+        options: {
+          temperature: 0.9, // Снижаем для более предсказуемых и простых ответов
+          top_p: 0.9,
+          top_k: 30,
+          repeat_penalty: 1.0,
+          num_predict: 80, // Короче ответы
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    let generatedText = data.response || '';
+    
+    // Если модель отказалась, пробуем еще раз с другим промптом
+    if (generatedText.toLowerCase().includes('не могу') || 
+        generatedText.toLowerCase().includes('cannot') ||
+        generatedText.toLowerCase().includes('i cannot') ||
+        generatedText.toLowerCase().includes('i\'m sorry') ||
+        generatedText.toLowerCase().includes('извините')) {
+      console.log('Model refused, trying alternative prompt...');
+      
+      // Альтернативный промпт - максимально простой с понятными описаниями
+      const altPrompt = `Примеры заданий:
+- Партнер сверху в течение 10 минут
+- Оральный секс партнеру на коленях
+- Одновременно делать оральный секс друг другу в течение 15 минут
+- Анальный секс когда партнер на четвереньках
+- Эротический массаж с маслом всего тела
+
+Придумай одно задание в таком же простом стиле:`;
+      
+      const altResponse = await fetch(ollamaUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: model,
+          prompt: altPrompt,
+          stream: false,
+          options: {
+            temperature: 1.5,
+            top_p: 0.95,
+          }
+        }),
+      });
+      
+      if (altResponse.ok) {
+        const altData = await altResponse.json();
+        generatedText = altData.response || '';
+      }
+    }
+    
+    // Парсим текст - берем первую строку как одно действие
+    let suggestion = generatedText
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && !line.match(/^\d+[\.\)]/)) // Убираем нумерацию
+      .find(line => line.length > 0) || ''; // Берем первую непустую строку
+    
+    // Убираем кавычки и лишние символы
+    suggestion = suggestion.replace(/^["']|["']$/g, '').trim();
+    
+    // Фильтрация насилия, опасности и страп-она
+    const filteredSuggestion = suggestion.toLowerCase();
+    const forbidden = ['насилие', 'убийство', 'кровь', 'убить', 'убивать', 'избить', 'избивать', 'несовершеннолетн', 'страп', 'страпон'];
+    const hasForbidden = forbidden.some(word => filteredSuggestion.includes(word));
+    
+    // Если модель все равно отказалась или пустой ответ - используем простые и понятные варианты
+    const fallbackSuggestions = [
+      'Партнер сверху в течение 10 минут',
+      'Оральный секс партнеру на коленях',
+      'Одновременно делать оральный секс друг другу в течение 15 минут',
+      'Анальный секс когда партнер на четвереньках',
+      'Эротический массаж с маслом всего тела',
+      'Секс стоя у стены с глубокими проникновениями',
+      'Мастурбация партнера руками в течение 5 минут',
+      'Секс когда партнер лежит на спине с медленными движениями',
+      'Оральный секс в душе стоя',
+      'Секс когда партнер на четвереньках с интенсивным ритмом',
+      'Эротический массаж простаты',
+      'Секс когда партнер лежит на спине с глубокими поцелуями',
+      'На коленях перед партнером с оральным сексом',
+      'Использовать вибратор на партнере когда он лежит на спине'
+    ];
+    
+    let finalSuggestion = suggestion;
+    if (hasForbidden || !suggestion || suggestion.length < 5) {
+      // Выбираем случайный fallback
+      finalSuggestion = fallbackSuggestions[Math.floor(Math.random() * fallbackSuggestions.length)];
+    }
+
+    res.json({ suggestion: finalSuggestion });
+  } catch (error) {
+    console.error('Error generating suggestions:', error);
+    // Если Ollama недоступен, возвращаем заготовленный вариант
+    const fallbackSuggestion = 'Страстный поцелуй в течение минуты';
+    res.json({ 
+      suggestion: fallbackSuggestion,
+      error: error.message,
+      fallback: true
+    });
+  }
+});
+
 // Хранилище игровых сессий
 const gameSessions = new Map();
 
@@ -282,15 +449,16 @@ io.on('connection', (socket) => {
     const normalizedCards = cards.map((card, index) => {
       let normalized;
       if (typeof card === 'string') {
-        normalized = { text: card, isEmpty: !card.trim() };
+        normalized = { text: card, isEmpty: !card.trim(), gifUrl: null };
       } else if (card && typeof card === 'object') {
-        // Если это объект, убеждаемся что есть поле text
+        // Если это объект, убеждаемся что есть поле text и gifUrl
         normalized = {
           text: card?.text || '',
-          isEmpty: !card?.text || !card.text.trim()
+          isEmpty: !card?.text || !card.text.trim(),
+          gifUrl: card?.gifUrl || null
         };
       } else {
-        normalized = { text: '', isEmpty: true };
+        normalized = { text: '', isEmpty: true, gifUrl: null };
       }
       console.log(`  Card ${index}:`, normalized);
       return normalized;
@@ -398,35 +566,43 @@ function randomizeCards(session) {
     
     // Нормализуем карточку игрока 1
     if (!card1) {
-      card1 = { text: '', isEmpty: true };
+      card1 = { text: '', isEmpty: true, gifUrl: null };
       console.log('  Card1: empty (not found)');
     } else if (typeof card1 === 'string') {
-      card1 = { text: card1, isEmpty: !card1.trim() };
+      card1 = { text: card1, isEmpty: !card1.trim(), gifUrl: null };
       console.log('  Card1: string ->', card1);
     } else if (card1 && typeof card1 === 'object') {
-      // Убеждаемся, что есть поле text
+      // Убеждаемся, что есть поле text и сохраняем gifUrl
       const text = card1.text || '';
-      card1 = { text: text, isEmpty: !text.trim() };
+      card1 = { 
+        text: text, 
+        isEmpty: !text.trim() && !card1.gifUrl, 
+        gifUrl: card1.gifUrl || null 
+      };
       console.log('  Card1: object ->', card1);
     } else {
-      card1 = { text: '', isEmpty: true };
+      card1 = { text: '', isEmpty: true, gifUrl: null };
       console.log('  Card1: empty (unknown type)');
     }
     
     // Нормализуем карточку игрока 2
     if (!card2) {
-      card2 = { text: '', isEmpty: true };
+      card2 = { text: '', isEmpty: true, gifUrl: null };
       console.log('  Card2: empty (not found)');
     } else if (typeof card2 === 'string') {
-      card2 = { text: card2, isEmpty: !card2.trim() };
+      card2 = { text: card2, isEmpty: !card2.trim(), gifUrl: null };
       console.log('  Card2: string ->', card2);
     } else if (card2 && typeof card2 === 'object') {
-      // Убеждаемся, что есть поле text
+      // Убеждаемся, что есть поле text и сохраняем gifUrl
       const text = card2.text || '';
-      card2 = { text: text, isEmpty: !text.trim() };
+      card2 = { 
+        text: text, 
+        isEmpty: !text.trim() && !card2.gifUrl, 
+        gifUrl: card2.gifUrl || null 
+      };
       console.log('  Card2: object ->', card2);
     } else {
-      card2 = { text: '', isEmpty: true };
+      card2 = { text: '', isEmpty: true, gifUrl: null };
       console.log('  Card2: empty (unknown type)');
     }
     
@@ -443,7 +619,9 @@ function randomizeCards(session) {
     pairs.push(pair);
     console.log(`  Pair ${i} created:`, {
       player1Text: pair.player1Card.text,
+      player1GifUrl: pair.player1Card.gifUrl,
       player2Text: pair.player2Card.text,
+      player2GifUrl: pair.player2Card.gifUrl,
       winner: pair.winner
     });
   }

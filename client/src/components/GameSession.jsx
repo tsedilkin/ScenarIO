@@ -25,16 +25,16 @@ function GameSession({ socket, sessionId, playerId, gameState, onUpdateCards, on
       // Нормализуем карточки - убеждаемся, что все карточки имеют правильный формат
       const normalizedCards = currentCards.map(card => {
         if (typeof card === 'string') {
-          return { text: card, isEmpty: !card.trim() };
+          return { text: card, isEmpty: !card.trim(), gifUrl: null };
         }
-        return card || { text: '', isEmpty: true };
+        return card || { text: '', isEmpty: true, gifUrl: null };
       });
       
       // Синхронизируем количество карточек с максимальным
       if (normalizedCards.length < maxCards) {
         const newCards = [...normalizedCards];
         while (newCards.length < maxCards) {
-          newCards.push({ text: '', isEmpty: true });
+          newCards.push({ text: '', isEmpty: true, gifUrl: null });
         }
         setLocalCards(newCards);
         // Отправляем обновление только если карточки изменились
@@ -54,13 +54,20 @@ function GameSession({ socket, sessionId, playerId, gameState, onUpdateCards, on
 
   const handleCardChange = (index, text) => {
     const newCards = [...localCards];
-    newCards[index] = { text, isEmpty: false };
+    newCards[index] = { ...newCards[index], text, isEmpty: false };
+    setLocalCards(newCards);
+    onUpdateCards(newCards);
+  };
+
+  const handleGifChange = (index, gifUrl) => {
+    const newCards = [...localCards];
+    newCards[index] = { ...newCards[index], gifUrl };
     setLocalCards(newCards);
     onUpdateCards(newCards);
   };
 
   const handleAddCard = () => {
-    const newCards = [...localCards, { text: '', isEmpty: true }];
+    const newCards = [...localCards, { text: '', isEmpty: true, gifUrl: null }];
     setLocalCards(newCards);
     onUpdateCards(newCards);
   };
@@ -171,6 +178,8 @@ function GameSession({ socket, sessionId, playerId, gameState, onUpdateCards, on
                   value={card.text}
                   onChange={(text) => handleCardChange(index, text)}
                   onRemove={localCards.length > 1 ? () => handleRemoveCard(index) : null}
+                  gifUrl={card.gifUrl}
+                  onGifChange={(gifUrl) => handleGifChange(index, gifUrl)}
                 />
               </motion.div>
             ))}
@@ -187,11 +196,11 @@ function GameSession({ socket, sessionId, playerId, gameState, onUpdateCards, on
           </button>
           <button
             onClick={onPlayerReady}
-            disabled={isReady || localCards.some(c => !c.text.trim())}
+            disabled={isReady || localCards.some(c => !c.text.trim() && !c.gifUrl)}
             className={`flex-1 font-semibold py-4 px-6 rounded-lg transition-all duration-200 shadow-lg ${
               isReady
                 ? 'bg-green-600 text-white cursor-not-allowed'
-                : localCards.some(c => !c.text.trim())
+                : localCards.some(c => !c.text.trim() && !c.gifUrl)
                 ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                 : 'bg-green-600 hover:bg-green-700 text-white'
             }`}
