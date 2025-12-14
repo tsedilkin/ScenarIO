@@ -5,7 +5,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { networkInterfaces } from 'os';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,30 +24,72 @@ app.use(express.json());
 
 // Статическая раздача GIF файлов
 const publicDir = join(__dirname, '..', 'public');
-app.use('/gifs', express.static(join(publicDir, 'gifs')));
+const gifsDir = join(publicDir, 'gifs');
+app.use('/gifs', express.static(gifsDir));
+
+// Кэш списка доступных локальных GIF файлов
+let localGifsCache = null;
+
+// Функция для получения списка локальных GIF файлов
+function getLocalGifs() {
+  if (localGifsCache !== null) {
+    return localGifsCache;
+  }
+  
+  try {
+    if (!existsSync(gifsDir)) {
+      localGifsCache = [];
+      return [];
+    }
+    
+    const files = readdirSync(gifsDir);
+    // Фильтруем только .gif файлы и извлекаем номера
+    const gifNumbers = files
+      .filter(file => file.startsWith('poza-') && file.endsWith('.gif'))
+      .map(file => {
+        const match = file.match(/poza-(\d+)\.gif/);
+        return match ? parseInt(match[1]) : null;
+      })
+      .filter(num => num !== null && num >= 1 && num <= 65);
+    
+    localGifsCache = gifNumbers;
+    
+    if (gifNumbers.length > 0) {
+      console.log(`✓ Найдено ${gifNumbers.length} локальных GIF файлов`);
+    }
+    
+    return gifNumbers;
+  } catch (error) {
+    console.error('Error reading local GIFs:', error);
+    localGifsCache = [];
+    return [];
+  }
+}
+
+// Инициализируем кэш при старте сервера
+getLocalGifs();
 
 // Endpoint для получения GIF позы
 app.post('/api/get-pose-gif', async (req, res) => {
   try {
-    // Генерируем случайный номер позы от 1 до 65 (как в базе камасутры)
-    const randomPose = Math.floor(Math.random() * 65) + 1;
-    
-    // Проверяем, есть ли локальный файл
-    const localGifPath = join(publicDir, 'gifs', `poza-${randomPose}.gif`);
-    const hasLocalFile = existsSync(localGifPath);
+    const localGifs = getLocalGifs();
     
     let gifUrl;
-    if (hasLocalFile) {
-      // Используем локальный файл
-      // req.headers.host уже содержит host:port
+    
+    // Если есть локальные GIF файлы, используем их
+    if (localGifs.length > 0) {
+      // Выбираем случайный номер из доступных локальных файлов
+      const randomIndex = Math.floor(Math.random() * localGifs.length);
+      const randomPose = localGifs[randomIndex];
+      
+      // Формируем URL для локального файла
       const host = req.headers.host || `localhost:${process.env.PORT || 3000}`;
       const protocol = req.protocol || (req.secure ? 'https' : 'http');
       gifUrl = `${protocol}://${host}/gifs/poza-${randomPose}.gif`;
-      console.log('Using local GIF:', gifUrl);
     } else {
-      // Fallback на внешний URL
+      // Если локальных файлов нет, используем внешний URL (старый способ)
+      const randomPose = Math.floor(Math.random() * 65) + 1;
       gifUrl = `https://fanty-online.com/data/uploads/poza-${randomPose}.gif`;
-      console.log('Using external GIF (local not found):', gifUrl);
     }
     
     res.json({ gifUrl });
